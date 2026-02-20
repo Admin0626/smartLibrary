@@ -54,6 +54,14 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     boolean existsByEmail(String email);
 
     /**
+     * 检查电话号是否已存在
+     *
+     * @param phone 电话号
+     * @return 是否存在
+     */
+    boolean existsByPhone(String phone);
+
+    /**
      * 根据角色查询用户列表
      *
      * @param role 用户角色
@@ -157,4 +165,6 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
      */
     @Query("SELECT u FROM User u WHERE u.currentBorrowCount > u.maxBorrowCount")
     List<User> findUsersWithOverdueBorrowLimit();
+
+
 }
