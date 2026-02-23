@@ -89,6 +89,27 @@ export const useUserStore = defineStore('user', () => {
         return userInfo.value?.role === 'ADMIN'
     }
 
+    /**
+     * 恢复用户信息（从localStorage恢复）
+     */
+    function restoreUser() {
+        const savedToken = localStorage.getItem('token')
+        const savedUserInfo = localStorage.getItem('userInfo')
+
+        if (savedToken) {
+            token.value = savedToken
+        }
+
+        if (savedUserInfo) {
+            try {
+                userInfo.value = JSON.parse(savedUserInfo)
+            } catch (error) {
+                console.error('恢复用户信息失败:', error)
+                userInfo.value = null
+            }
+        }
+    }
+
     return {
         token,
         userInfo,
@@ -97,6 +118,7 @@ export const useUserStore = defineStore('user', () => {
         fetchUserInfo,
         logout,
         isLoggedIn,
-        isAdmin
+        isAdmin,
+        restoreUser
     }
 })
