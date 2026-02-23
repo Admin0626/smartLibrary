@@ -1,5 +1,6 @@
 package com.example.smart_library.controller;
 
+import com.example.smart_library.common.PageResponse;
 import com.example.smart_library.common.Result;
 import com.example.smart_library.dto.request.SearchBookRequest;
 import com.example.smart_library.dto.response.BookInfoResponse;
@@ -79,8 +80,9 @@ public class BookController {
      * 搜索图书
      */
     @GetMapping("/search")
-    public Result<Page<BookInfoResponse>> searchBooks(@Valid SearchBookRequest request) {
-        Page<BookInfoResponse> response = bookService.searchBooks(request);
+    public Result<PageResponse<BookInfoResponse>> searchBooks(@Valid SearchBookRequest request) {
+        Page<BookInfoResponse> page = bookService.searchBooks(request);
+        PageResponse<BookInfoResponse> response = PageResponse.of(page);
         return Result.success(response);
     }
 
@@ -88,10 +90,11 @@ public class BookController {
      * 获取可借阅图书列表
      */
     @GetMapping("/available")
-    public Result<Page<BookInfoResponse>> getAvailableBooks(
+    public Result<PageResponse<BookInfoResponse>> getAvailableBooks(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize) {
-        Page<BookInfoResponse> response = bookService.getAvailableBooks(pageNum, pageSize);
+        Page<BookInfoResponse> page = bookService.getAvailableBooks(pageNum, pageSize);
+        PageResponse<BookInfoResponse> response = PageResponse.of(page);
         return Result.success(response);
     }
 

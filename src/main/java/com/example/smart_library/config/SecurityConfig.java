@@ -45,8 +45,15 @@ public class SecurityConfig {
                 // 禁用CSRF
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 禁用CORS（生产环境应启用）
-                .cors(AbstractHttpConfigurer::disable)
+                // 启用CORS
+                .cors(cors -> cors.configurationSource(request -> {
+                    org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+                    configuration.addAllowedOriginPattern("*");
+                    configuration.addAllowedHeader("*");
+                    configuration.addAllowedMethod("*");
+                    configuration.setAllowCredentials(true);
+                    return configuration;
+                }))
 
                 // 配置会话管理：无状态
                 .sessionManagement(session -> session
@@ -57,11 +64,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口：无需认证
                         .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/register",
+                                "/api/auth/**",
                                 "/api/books/search",
                                 "/api/books/available",
-                                "/api/books/popular"
+                                "/api/books/popular",
+                                "/error"
                         ).permitAll()
 
                         // 管理员接口：需要ADMIN角色

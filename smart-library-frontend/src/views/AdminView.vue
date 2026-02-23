@@ -4,6 +4,13 @@
       <!-- 头部导航 -->
       <el-header>
         <div class="header-left">
+          <el-button
+              type="primary"
+              :icon="ArrowLeft"
+              @click="goBack"
+              circle
+              style="margin-right: 15px;"
+          />
           <h1>管理后台</h1>
         </div>
         <div class="header-right">
@@ -311,12 +318,16 @@ import { useUserStore } from '@/stores/user'
 import { getAllUsers } from '@/api/user'
 import { searchBooks, createBook, updateBook, deleteBook as deleteBookApi } from '@/api/book'
 import { getOverdueRecords } from '@/api/borrow'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const activeMenu = ref('dashboard')
 
+const goBack = () => {
+  router.back() // 返回上一页
+}
 // 数据概览
 const dashboardStats = reactive({
   totalBooks: 0,

@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 创建认证对象
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                userId,
+                                username,  // 使用 username 作为 principal
                                 null,
                                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
                         );
@@ -58,7 +58,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                log.debug("用户 {} 认证成功，角色：{}", username, role);
+                // 将用户ID和用户名设置到请求属性中，方便 Controller 使用
+                request.setAttribute("userId", userId);
+                request.setAttribute("username", username);
+
+                log.debug("用户 {} (ID: {}) 认证成功，角色：{}", username, userId, role);
             }
         } catch (Exception e) {
             log.error("无法设置用户认证：{}", e.getMessage());

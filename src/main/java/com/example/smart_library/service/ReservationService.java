@@ -9,6 +9,7 @@ import com.example.smart_library.repository.BookRepository;
 import com.example.smart_library.repository.ReservationRepository;
 import com.example.smart_library.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,7 +32,9 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    @Lazy
     private final BorrowService borrowService;
+    @Lazy
     private final BookService bookService;
 
     /**

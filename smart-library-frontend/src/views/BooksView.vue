@@ -4,6 +4,13 @@
       <!-- 头部导航 -->
       <el-header>
         <div class="header-left">
+          <el-button
+              type="primary"
+              :icon="ArrowLeft"
+              @click="goBack"
+              circle
+              style="margin-right: 15px;"
+          />
           <h1>图书列表</h1>
         </div>
         <div class="header-right">
@@ -189,10 +196,15 @@ import { useUserStore } from '@/stores/user'
 import { searchBooks, getBookById } from '@/api/book'
 import { borrowBook } from '@/api/borrow'
 import { reserveBook } from '@/api/reservation'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+const goBack = () => {
+  router.back() // 返回上一页
+}
 
 const loading = ref(false)
 const borrowLoading = ref(false)

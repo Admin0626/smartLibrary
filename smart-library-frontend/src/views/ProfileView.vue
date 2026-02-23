@@ -4,6 +4,13 @@
       <!-- 头部导航 -->
       <el-header>
         <div class="header-left">
+          <el-button
+              type="primary"
+              :icon="ArrowLeft"
+              @click="goBack"
+              circle
+              style="margin-right: 15px;"
+          />
           <h1>个人中心</h1>
         </div>
         <div class="header-right">
@@ -27,7 +34,7 @@
       <el-main>
         <el-row :gutter="20">
           <!-- 左侧：用户信息 -->
-          <el-col :span="8">
+          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
             <el-card shadow="hover">
               <template #header>
                 <div class="card-header">
@@ -100,16 +107,16 @@
                   <span>{{ userInfo?.currentBorrowCount }} / {{ userInfo?.maxBorrowCount }}</span>
                 </div>
                 <el-progress
-                  :percentage="borrowPercentage"
-                  :color="progressColor"
-                  :stroke-width="20"
+                    :percentage="borrowPercentage"
+                    :color="progressColor"
+                    :stroke-width="20"
                 />
               </div>
             </el-card>
           </el-col>
 
           <!-- 右侧：操作记录 -->
-          <el-col :span="16">
+          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
             <el-card shadow="hover">
               <template #header>
                 <el-tabs v-model="activeTab">
@@ -123,11 +130,11 @@
                 <el-empty v-if="recentBorrows.length === 0" description="暂无借阅记录" />
                 <el-timeline v-else>
                   <el-timeline-item
-                    v-for="record in recentBorrows"
-                    :key="record.id"
-                    :timestamp="formatDateTime(record.borrowDate)"
-                    placement="top"
-                    :type="getTimelineType(record.status)"
+                      v-for="record in recentBorrows"
+                      :key="record.id"
+                      :timestamp="formatDateTime(record.borrowDate)"
+                      placement="top"
+                      :type="getTimelineType(record.status)"
                   >
                     <el-card>
                       <div class="record-item">
@@ -155,11 +162,11 @@
                 <el-empty v-if="recentReservations.length === 0" description="暂无预约记录" />
                 <el-timeline v-else>
                   <el-timeline-item
-                    v-for="record in recentReservations"
-                    :key="record.id"
-                    :timestamp="formatDateTime(record.reservationDate)"
-                    placement="top"
-                    :type="getTimelineType(record.status)"
+                      v-for="record in recentReservations"
+                      :key="record.id"
+                      :timestamp="formatDateTime(record.reservationDate)"
+                      placement="top"
+                      :type="getTimelineType(record.status)"
                   >
                     <el-card>
                       <div class="record-item">
@@ -207,13 +214,15 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, ArrowDown, Edit } from '@element-plus/icons-vue'
+import {User, ArrowDown, Edit, ArrowLeft} from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { updateProfile } from '@/api/user'
 import { getMyBorrowRecords } from '@/api/borrow'
 import { getMyReservations } from '@/api/reservation'
+import { useRouter } from 'vue-router'
+
+
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -226,6 +235,10 @@ const reservationLoading = ref(false)
 const activeTab = ref('borrows')
 
 const userInfo = computed(() => userStore.userInfo)
+
+const goBack = () => {
+  router.back() // 返回上一页
+}
 
 const editForm = reactive({
   realName: '',
@@ -367,9 +380,15 @@ const handleCommand = (command) => {
       router.push('/home')
       break
     case 'logout':
-      userStore.logout()
-      ElMessage.success('退出成功')
-      router.push('/login')
+      try {
+        userStore.logout()
+        console.log('退出登录成功')
+        ElMessage.success('退出成功')
+        router.push('/login')
+      } catch (error) {
+        console.error('退出登录失败:', error)
+        ElMessage.error('退出失败')
+      }
       break
   }
 }
@@ -423,7 +442,7 @@ onMounted(async () => {
 
 .el-main {
   padding: 20px 40px;
-  max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
 }
 

@@ -4,6 +4,13 @@
       <!-- 头部导航 -->
       <el-header>
         <div class="header-left">
+          <el-button
+              type="primary"
+              :icon="ArrowLeft"
+              @click="goBack"
+              circle
+              style="margin-right: 15px;"
+          />
           <h1>我的预约</h1>
         </div>
         <div class="header-right">
@@ -115,19 +122,19 @@
             <el-table-column label="操作" width="150" fixed="right">
               <template #default="{ row }">
                 <el-button
-                  v-if="row.status === 'PENDING' || row.status === 'ACTIVE'"
-                  type="danger"
-                  size="small"
-                  :loading="row.cancelLoading"
-                  @click="handleCancel(row)"
+                    v-if="row.status === 'PENDING' || row.status === 'ACTIVE'"
+                    type="danger"
+                    size="small"
+                    :loading="row.cancelLoading"
+                    @click="handleCancel(row)"
                 >
                   取消预约
                 </el-button>
                 <el-button
-                  v-if="row.status === 'ACTIVE'"
-                  type="primary"
-                  size="small"
-                  @click="goToBorrow(row)"
+                    v-if="row.status === 'ACTIVE'"
+                    type="primary"
+                    size="small"
+                    @click="goToBorrow(row)"
                 >
                   去借阅
                 </el-button>
@@ -141,13 +148,13 @@
           <!-- 分页 -->
           <div class="pagination" v-if="total > 0">
             <el-pagination
-              v-model:current-page="pagination.pageNum"
-              v-model:page-size="pagination.pageSize"
-              :page-sizes="[10, 20, 30, 50]"
-              :total="total"
-              layout="total, sizes, prev, pager, next, jumper"
-              @size-change="fetchReservations"
-              @current-change="fetchReservations"
+                v-model:current-page="pagination.pageNum"
+                v-model:page-size="pagination.pageSize"
+                :page-sizes="[10, 20, 30, 50]"
+                :total="total"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="fetchReservations"
+                @current-change="fetchReservations"
             />
           </div>
 
@@ -168,10 +175,10 @@
         </el-form-item>
         <el-form-item label="取消原因">
           <el-input
-            v-model="cancelForm.reason"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入取消原因（选填）"
+              v-model="cancelForm.reason"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入取消原因（选填）"
           />
         </el-form-item>
       </el-form>
@@ -191,9 +198,14 @@ import { User, ArrowDown, Clock, Bell, CircleClose, Reading } from '@element-plu
 import { useUserStore } from '@/stores/user'
 import { getMyReservations } from '@/api/reservation'
 import { cancelReservation } from '@/api/reservation'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+const goBack = () => {
+  router.back() // 返回上一页
+}
 
 const loading = ref(false)
 const cancelLoading = ref(false)
@@ -315,9 +327,15 @@ const handleCommand = (command) => {
       router.push('/home')
       break
     case 'logout':
-      userStore.logout()
-      ElMessage.success('退出成功')
-      router.push('/login')
+      try {
+        userStore.logout()
+        console.log('退出登录成功')
+        ElMessage.success('退出成功')
+        router.push('/login')
+      } catch (error) {
+        console.error('退出登录失败:', error)
+        ElMessage.error('退出失败')
+      }
       break
   }
 }
