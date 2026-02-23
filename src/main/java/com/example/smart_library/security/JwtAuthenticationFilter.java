@@ -1,127 +1,80 @@
 package com.example.smart_library.security;
 
-import com.example.smart_library.common.BusinessException;
-import com.example.smart_library.utils.JwtUtil;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Collections;
 
 /**
- * JWT认证拦截器
- * 拦截请求，验证JWT token的有效性
+ * JWT认证过滤器
  *
  * @author SmartLibrary
  * @since 2024-02-15
  */
+@Slf4j
 @Component
-public class JwtAuthenticationFilter implements HandlerInterceptor {
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private final com.example.smart_library.security.JwtUtil jwtUtil;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    /**
-     * 白名单路径（不需要验证token的路径）
-     */
-    private static final String[] WHITE_LIST = {
-            "/api/auth/login",           // 登录
-            "/api/auth/register",        // 注册
-            "/api/auth/send-code",       // 发送验证码
-            "/api/auth/reset-password",  // 重置密码
-            "/api/books",                // 图书列表（允许未登录浏览）
-            "/api/books/search",         // 搜索图书
-            "/api/books/hot",            // 热门图书
-            "/api/books/recommend",      // 推荐图书
-            "/api/announcements",        // 公告列表
-            "/swagger-ui",               // Swagger UI
-            "/v3/api-docs"               // API文档
-    };
-
-    /**
-     * 请求处理前执行
-     *
-     * @param request HTTP请求
-     * @param response HTTP响应
-     * @param handler 处理器
-     * @return true-放行，false-拦截
-     * @throws Exception 异常
-     */
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        // 获取请求路径
-        String requestUri = request.getRequestURI();
-
-        // 判断是否在白名单中
-        if (isWhiteList(requestUri)) {
-            log.debug("请求路径在白名单中，放行：{}", requestUri);
-            return true;
-        }
-
-        // 从请求头获取Authorization
-        String authHeader = request.getHeader("Authorization");
-
-        // 检查Authorization是否存在
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("请求头中缺少Authorization或格式错误：{}", requestUri);
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"未授权，请先登录\"}");
-            return false;
-        }
-
-        // 提取token字符串
-        String token = authHeader.substring(7);  // 去掉"Bearer "前缀
-
-        // 验证token
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
         try {
-            if (!jwtUtil.validateToken(token)) {
-                log.warn("Token无效或已过期：{}", requestUri);
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\":401,\"message\":\"Token无效或已过期，请重新登录\"}");
-                return false;
+            // 从请求头中提取令牌
+            String token = extractTokenFromRequest(request);
+
+            // 验证令牌并设置认证信息
+            if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
+                Long userId = jwtUtil.extractUserId(token);
+                String username = jwtUtil.extractUsername(token);
+                String role = jwtUtil.extractRole(token);
+
+                // 创建认证对象
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userId,
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                        );
+
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                log.debug("用户 {} 认证成功，角色：{}", username, role);
             }
-
-            // 解析token，提取用户信息
-            Long userId = jwtUtil.getUserIdFromToken(token);
-            String username = jwtUtil.getUsernameFromToken(token);
-            String role = jwtUtil.getRoleFromToken(token);
-
-            log.debug("Token验证成功，用户ID：{}，用户名：{}，角色：{}", userId, username, role);
-
-            // 将用户信息存入request属性，供Controller使用
-            request.setAttribute("userId", userId);
-            request.setAttribute("username", username);
-            request.setAttribute("role", role);
-
-            return true;  // 放行
-
         } catch (Exception e) {
-            log.error("Token解析失败：{}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"Token解析失败，请重新登录\"}");
-            return false;
+            log.error("无法设置用户认证：{}", e.getMessage());
         }
+
+        filterChain.doFilter(request, response);
     }
 
     /**
-     * 判断请求路径是否在白名单中
-     *
-     * @param requestUri 请求路径
-     * @return true-在白名单中，false-不在白名单中
+     * 从请求中提取令牌
      */
-    private boolean isWhiteList(String requestUri) {
-        for (String whitePath : WHITE_LIST) {
-            if (requestUri.startsWith(whitePath)) {
-                return true;
-            }
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+            return bearerToken.substring(BEARER_PREFIX.length());
         }
-        return false;
+        return null;
     }
 }

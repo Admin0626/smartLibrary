@@ -1,133 +1,153 @@
-package com.example.smart_library.utils;
+package com.example.smart_library.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
  * JWT工具类
- * 负责生成和解析JWT token
  *
  * @author SmartLibrary
  * @since 2024-02-15
  */
+@Slf4j
 @Component
 public class JwtUtil {
 
     /**
-     * JWT密钥
-     * 从application.yml中读取，如果未配置则使用默认值
+     * JWT 密钥
      */
-    @Value("${jwt.secret:SmartLibrary2024SecretKeyForJWTTokenGeneration}")
+    @Value("${jwt.secret:SmartLibrarySecretKey2024ForJWTTokenGenerationThatIsLongEnoughForHS256}")
     private String secret;
 
     /**
-     * JWT过期时间（毫秒）
-     * 从application.yml中读取，默认24小时（86400000毫秒）
+     * JWT 过期时间（毫秒）：默认7天
      */
-    @Value("${jwt.expiration:86400000}")
+    @Value("${jwt.expiration:604800000}")
     private Long expiration;
 
     /**
-     * 生成JWT token
-     *
-     * @param userId 用户ID
-     * @param username 用户名
-     * @param role 用户角色
-     * @return JWT token字符串
+     * 生成密钥
      */
-    public String generateToken(Long userId, String username, String role) {
-        // 设置过期时间
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration);
-
-        // 构建JWT
-        return Jwts.builder()
-                .setSubject(username)                           // 设置主题（用户名）
-                .claim("userId", userId)                        // 添加用户ID
-                .claim("role", role)                            // 添加角色
-                .setIssuedAt(now)                               // 设置签发时间
-                .setExpiration(expiryDate)                      // 设置过期时间
-                .signWith(generateSecretKey(), SignatureAlgorithm.HS512) // 使用HS512算法签名
-                .compact();
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
-     * 解析JWT token
-     *
-     * @param token JWT token字符串
-     * @return Claims对象（包含token中的所有信息）
+     * 从令牌中提取用户名
      */
-    public Claims parseToken(String token) {
-        return Jwts.parser()
-                .verifyWith(generateSecretKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
     }
 
     /**
-     * 从token中提取用户ID
-     *
-     * @param token JWT token字符串
-     * @return 用户ID
+     * 从令牌中提取用户ID
      */
-    public Long getUserIdFromToken(String token) {
-        Claims claims = parseToken(token);
+    public Long extractUserId(String token) {
+        Claims claims = extractAllClaims(token);
         return claims.get("userId", Long.class);
     }
 
     /**
-     * 从token中提取用户名
-     *
-     * @param token JWT token字符串
-     * @return 用户名
+     * 从令牌中提取用户角色
      */
-    public String getUsernameFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.getSubject();
-    }
-
-    /**
-     * 从token中提取角色
-     *
-     * @param token JWT token字符串
-     * @return 用户角色
-     */
-    public String getRoleFromToken(String token) {
-        Claims claims = parseToken(token);
+    public String extractRole(String token) {
+        Claims claims = extractAllClaims(token);
         return claims.get("role", String.class);
     }
 
     /**
-     * 验证token是否有效
-     *
-     * @param token JWT token字符串
-     * @return true-有效，false-无效
+     * 从令牌中提取过期时间
      */
-    public boolean validateToken(String token) {
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    /**
+     * 从令牌中提取指定声明
+     */
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    /**
+     * 提取所有声明
+     */
+    private Claims extractAllClaims(String token) {
         try {
-            parseToken(token);  // 尝试解析token
-            return true;        // 解析成功，token有效
+            return Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (Exception e) {
-            return false;       // 解析失败，token无效
+            log.error("解析JWT令牌失败：{}", e.getMessage());
+            throw new RuntimeException("无效的令牌");
         }
     }
 
     /**
-     * 生成签名密钥
-     * 将字符串密钥转换为SecretKey对象
-     *
-     * @return SecretKey对象
+     * 检查令牌是否过期
      */
-    private SecretKey generateSecretKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    /**
+     * 生成令牌
+     */
+    public String generateToken(Long userId, String username, String role) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("role", role);
+        return createToken(claims, username);
+    }
+
+    /**
+     * 创建令牌
+     */
+    private String createToken(Map<String, Object> claims, String subject) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expiration);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * 验证令牌
+     */
+    public Boolean validateToken(String token, String username) {
+        final String extractedUsername = extractUsername(token);
+        return (extractedUsername.equals(username) && !isTokenExpired(token));
+    }
+
+    /**
+     * 验证令牌（仅验证有效性）
+     */
+    public Boolean validateToken(String token) {
+        try {
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

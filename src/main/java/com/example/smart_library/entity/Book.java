@@ -1,14 +1,10 @@
 package com.example.smart_library.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -23,9 +19,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "books", indexes = {
         @Index(name = "idx_isbn", columnList = "isbn"),
+        @Index(name = "idx_title", columnList = "title"),
         @Index(name = "idx_category", columnList = "category"),
-        @Index(name = "idx_author", columnList = "author"),
-        @Index(name = "idx_status", columnList = "status")
+        @Index(name = "idx_author", columnList = "author")
 })
 public class Book {
 
@@ -37,16 +33,17 @@ public class Book {
     private Long id;
 
     /**
-     * 图书ISBN（唯一）
+     * ISBN编号（唯一）
      */
     @NotBlank(message = "ISBN不能为空")
+    @Pattern(regexp = "^\\d{10,13}$", message = "ISBN格式不正确")
     @Column(unique = true, nullable = false, length = 20)
     private String isbn;
 
     /**
-     * 书名
+     * 图书标题
      */
-    @NotBlank(message = "书名不能为空")
+    @NotBlank(message = "图书标题不能为空")
     @Column(nullable = false, length = 200)
     private String title;
 
@@ -67,55 +64,45 @@ public class Book {
     /**
      * 出版日期
      */
-    @Column
+    @NotNull(message = "出版日期不能为空")
+    @Column(nullable = false)
     private LocalDateTime publishDate;
 
     /**
      * 图书分类
      */
-    @Enumerated(EnumType.STRING)
+    @NotBlank(message = "图书分类不能为空")
     @Column(nullable = false, length = 50)
-    private BookCategory category;
+    private String category;
 
     /**
-     * 图书价格
+     * 价格
      */
-    @DecimalMin(value = "0.00", message = "价格不能为负数")
-    @Column(precision = 10, scale = 2)
-    private BigDecimal price;
+    @DecimalMin(value = "0.0", inclusive = false, message = "价格必须大于0")
+    @Column(nullable = false, precision = 10, scale = 2)
+    private java.math.BigDecimal price;
 
     /**
      * 总库存数量
      */
-    @NotNull(message = "总库存数量不能为空")
+    @NotNull(message = "总库存不能为空")
+    @Min(value = 0, message = "总库存不能为负数")
     @Column(nullable = false)
     private Integer totalStock = 0;
 
     /**
      * 当前可借数量
      */
-    @NotNull(message = "当前可借数量不能为空")
+    @NotNull(message = "可借数量不能为空")
+    @Min(value = 0, message = "可借数量不能为负数")
     @Column(nullable = false)
     private Integer availableStock = 0;
 
     /**
-     * 借出数量
+     * 图书封面URL
      */
-    @Column(nullable = false)
-    private Integer borrowedCount = 0;
-
-    /**
-     * 图书状态：AVAILABLE-可借, BORROWED-已借出, RESERVED-已预约, LOST-遗失, DAMAGED-损坏, MAINTENANCE-维护中
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private BookStatus status = BookStatus.AVAILABLE;
-
-    /**
-     * 图书位置（书架编号）
-     */
-    @Column(length = 50)
-    private String location;
+    @Column(length = 500)
+    private String coverUrl;
 
     /**
      * 图书简介
@@ -124,10 +111,17 @@ public class Book {
     private String description;
 
     /**
-     * 封面图片URL
+     * 图书位置（书架号）
      */
-    @Column(length = 500)
-    private String coverImage;
+    @Column(length = 50)
+    private String location;
+
+    /**
+     * 图书状态：AVAILABLE-可借, BORROWED-借出, RESERVED-预约中, MAINTENANCE-维护中
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private BookStatus status = BookStatus.AVAILABLE;
 
     /**
      * 创建时间
@@ -142,42 +136,12 @@ public class Book {
     private LocalDateTime updatedAt;
 
     /**
-     * 图书分类枚举
-     */
-    public enum BookCategory {
-        LITERATURE("文学"),
-        SCIENCE("科学"),
-        TECHNOLOGY("技术"),
-        HISTORY("历史"),
-        PHILOSOPHY("哲学"),
-        ART("艺术"),
-        ECONOMICS("经济"),
-        MANAGEMENT("管理"),
-        EDUCATION("教育"),
-        MEDICINE("医学"),
-        LAW("法律"),
-        OTHER("其他");
-
-        private final String description;
-
-        BookCategory(String description) {
-            this.description = description;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-    }
-
-    /**
      * 图书状态枚举
      */
     public enum BookStatus {
         AVAILABLE("可借"),
-        BORROWED("已借出"),
-        RESERVED("已预约"),
-        LOST("遗失"),
-        DAMAGED("损坏"),
+        BORROWED("借出"),
+        RESERVED("预约中"),
         MAINTENANCE("维护中");
 
         private final String description;
@@ -188,35 +152,6 @@ public class Book {
 
         public String getDescription() {
             return description;
-        }
-    }
-
-    /**
-     * 检查图书是否可借
-     */
-    public boolean isAvailable() {
-        return status == BookStatus.AVAILABLE && availableStock > 0;
-    }
-
-    /**
-     * 检查图书是否可预约
-     */
-    public boolean isReservable() {
-        return status != BookStatus.LOST && status != BookStatus.DAMAGED;
-    }
-
-    /**
-     * 更新库存数量
-     */
-    public void updateStock(int borrowedChange) {
-        this.borrowedCount += borrowedChange;
-        this.availableStock = totalStock - borrowedCount;
-
-        // 根据库存自动更新状态
-        if (availableStock <= 0 && borrowedCount >= totalStock) {
-            this.status = BookStatus.BORROWED;
-        } else if (availableStock > 0) {
-            this.status = BookStatus.AVAILABLE;
         }
     }
 
